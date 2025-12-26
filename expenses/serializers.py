@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import Account, Expense, ExpenseItem
 from django.db import transaction
+from decimal import Decimal
 
 class ExpenseItemSerializer(serializers.ModelSerializer):
     class Meta:
@@ -15,59 +16,56 @@ class ExpenseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Expense
         fields = '__all__'
+        read_only_fields = ('total_expense', 'vat_amount', 'created_at')
 
     @transaction.atomic
     def create(self, validated_data):
         items_data = validated_data.pop('items')
 
-        # 1️⃣ Calculate items total
-        items_total = sum(item['total'] for item in items_data)
-
-        # 2️⃣ VAT calculation
         vat_enabled = validated_data.get('vat_enabled', False)
-        vat_rate = validated_data.get('vat_rate', 15)
+        vat_rate = validated_data.get('vat_rate', Decimal('0'))
 
-        vat_amount = 0
-        if vat_enabled:
-            vat_amount = (items_total * vat_rate) / 100
-
-        # 3️⃣ Final total
-        final_total = items_total + vat_amount
-
-        validated_data['vat_amount'] = vat_amount
-        validated_data['total_expense'] = final_total
-
+        # 1️⃣ Create Expense first
         expense = Expense.objects.create(**validated_data)
 
-        # 4️⃣ Save items
+        subtotal = Decimal('0')
+
+        # 2️⃣ Create items & subtotal
         for item in items_data:
+            total = item['quantity'] * item['unit_price']
+            item['total'] = total
+            subtotal += total
             ExpenseItem.objects.create(expense=expense, **item)
 
-        # 5️⃣ Update account balances
-        if expense.payment_source == 'cash':
-            cash = Account.objects.get(account_type='cash')
-            cash.balance -= final_total
-            cash.save()
+        # 3️⃣ VAT calculation
+        vat_amount = Decimal('0')
+        if vat_enabled and vat_rate > 0:
+            vat_amount = (subtotal * vat_rate) / Decimal('100')
 
-        elif expense.payment_source == 'bank':
-            bank = Account.objects.get(account_type='bank')
-            bank.balance -= final_total
-            bank.save()
+        total_expense = subtotal + vat_amount
 
-        elif expense.payment_source == 'both':
-            cash = Account.objects.get(account_type='cash')
-            bank = Account.objects.get(account_type='bank')
+        # 4️⃣ Save totals
+        expense.vat_amount = vat_amount
+        expense.total_expense = total_expense
+        expense.save()
 
-            cash.balance -= expense.cash_amount
-            bank.balance -= expense.bank_amount
+        # 5️⃣ SAFE account handling (NO DoesNotExist)
+        payment_source = expense.payment_source
 
-            cash.save()
-            bank.save()
+        if payment_source == 'cash':
+            cash_account, _ = Account.objects.get_or_create(
+                account_type='cash',
+                defaults={'balance': Decimal('0')}
+            )
+            cash_account.balance -= total_expense
+            cash_account.save()
+
+        elif payment_source == 'bank':
+            bank_account, _ = Account.objects.get_or_create(
+                account_type='bank',
+                defaults={'balance': Decimal('0')}
+            )
+            bank_account.balance -= total_expense
+            bank_account.save()
 
         return expense
-
-
-class AccountSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Account
-        fields = '__all__'

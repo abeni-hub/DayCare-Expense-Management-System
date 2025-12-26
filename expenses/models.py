@@ -32,6 +32,19 @@ class Expense(models.Model):
     category = models.CharField(max_length=100)
     supplier = models.CharField(max_length=200, blank=True, null=True)
 
+    # VAT
+    vat_enabled = models.BooleanField(default=False)
+    vat_rate = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=15.00
+    )
+    vat_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0
+    )
+
     payment_source = models.CharField(max_length=10, choices=PAYMENT_SOURCE)
     cash_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     bank_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -45,8 +58,6 @@ class Expense(models.Model):
 
     def __str__(self):
         return f"Expense {self.id} - {self.total_expense}"
-
-
 # -----------------------
 # EXPENSE ITEMS (MULTIPLE)
 # -----------------------

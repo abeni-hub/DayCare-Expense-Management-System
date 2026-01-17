@@ -11,8 +11,15 @@ class AccountSerializer(serializers.ModelSerializer):
 class ExpenseItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExpenseItem
-        fields = '__all__'
-        read_only_fields = ('expense',)
+        fields = (
+            'id',
+            'item_name',
+            'quantity',
+            'unit',
+            'unit_price',
+            'total',
+        )
+        read_only_fields = ('total',)
 
 
 class ExpenseSerializer(serializers.ModelSerializer):

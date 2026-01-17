@@ -3,6 +3,11 @@ from .models import Account, Expense, ExpenseItem
 from django.db import transaction
 from decimal import Decimal
 
+class AccountSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Account
+        fields = '__all__'
+
 class ExpenseItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExpenseItem

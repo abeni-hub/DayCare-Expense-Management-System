@@ -1,3 +1,4 @@
+# incomes/constants.py
 from django.db import models
 
 class IncomeType(models.TextChoices):

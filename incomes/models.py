@@ -24,7 +24,7 @@ class Income(models.Model):
     )
 
     payment_destination = models.ForeignKey(
-        'accounts.Account',
+        'expenses.Account',
         on_delete=models.PROTECT
     )
 

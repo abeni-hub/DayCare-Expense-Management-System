@@ -1,214 +1,213 @@
-# 🏫 DayCare Expense Management System – Backend (Django REST Framework)
+# Recipe App API 🍲
 
-A robust **backend application** built with **Django & Django REST Framework (DRF)** to support the **DayCare Expense Management System**, seamlessly integrated with a **React + TypeScript frontend**. This backend ensures **secure, accurate, and scalable financial data management** for DayCare operations.
+A **production-ready RESTful Recipe API** designed for managing recipes, ingredients, and users.
+This project follows **industry best practices**, including **Dockerized development**, **PostgreSQL integration**, **Swagger API documentation**, **automated testing**, **linting with Flake8**, and **CI/CD using GitHub Actions**.
 
 ---
 
-## 📌 Project Overview
+## 🚀 Features
 
-The **DayCare Expense Management Backend** provides a RESTful API for managing all expense-related data used by the frontend application. It handles:
-
-* Expense and expense-item management
-* VAT calculation and validation
-* Category, supplier, and payment source tracking
-* Pagination and filtering
-* Secure integration with a React + TypeScript frontend
-
-The backend is designed with **clean architecture**, **data integrity**, and **API-first development** principles.
+* RESTful API for recipe management
+* User authentication and authorization
+* CRUD operations for recipes and ingredients
+* PostgreSQL as the primary database
+* Docker & Docker Compose for containerized development
+* Swagger UI (OpenAPI) for interactive API documentation
+* Unit and integration testing
+* Code quality enforcement using Flake8
+* Automated CI/CD pipeline with GitHub Actions
+* Environment-based configuration
 
 ---
 
 ## 🛠️ Tech Stack
 
-### Backend
-
-* **Python**
-* **Django** – Core web framework
-* **Django REST Framework (DRF)** – RESTful API development
-* **PostgreSQL / SQLite** – Database (configurable)
-* **Django ORM** – Database modeling & queries
-
-### Frontend Integration
-
-* **React + TypeScript**
-* **Redux Toolkit & RTK Query** for API consumption
-* JSON-based REST communication
+* **Backend:** Django & Django REST Framework
+* **Database:** PostgreSQL
+* **API Documentation:** Swagger UI (OpenAPI)
+* **Containerization:** Docker, Docker Compose
+* **Testing:** Django Test Framework (Unit & Integration Tests)
+* **Linting:** Flake8
+* **CI/CD:** GitHub Actions
+* **Version Control:** Git & GitHub
 
 ---
 
-## 🔗 Frontend–Backend Integration
+## 🏗️ Project Architecture
 
-The backend exposes **RESTful endpoints** consumed by the React frontend using **RTK Query**. The API provides:
-
-* Consistent response formats
-* Pagination (`count`, `next`, `previous`)
-* Validation and error handling
-* Strong compatibility with TypeScript interfaces
-
-### Example API Response
-
-```json
-{
-  "count": 1,
-  "next": null,
-  "previous": null,
-  "results": [
-    {
-      "id": 1,
-      "items": [
-        {
-          "id": 3,
-          "item_name": "Marker",
-          "quantity": "5.00",
-          "unit": "pcs",
-          "unit_price": "30.00",
-          "total": "150.00"
-        }
-      ],
-      "date": "2026-01-17",
-      "description": "Office supplies UPDATED",
-      "category": "Stationery",
-      "supplier": "Local Shop",
-      "payment_source": "cash",
-      "vat_enabled": false,
-      "vat_rate": "15.00",
-      "vat_amount": "0.00",
-      "total_expense": "150.00",
-      "remarks": "Bought pens and papers",
-      "created_at": "2026-01-17T07:29:40.091268Z"
-    }
-  ]
-}
+```
+recipe-app-api/
+├── app/
+│   ├── core/          # Core models and utilities
+│   ├── user/          # User authentication & management
+│   ├── recipe/        # Recipe and ingredient features
+│   ├── tests/         # Unit & integration tests
+│   └── manage.py
+├── .github/
+│   └── workflows/
+│       └── ci.yml     # CI pipeline (tests, linting)
+├── docker-compose.yml
+├── Dockerfile
+├── requirements.txt
+├── .flake8
+├── .env.example
+└── README.md
 ```
 
 ---
 
-## 📁 Backend Project Structure
+## 🐳 Docker Setup (Local Development)
 
-```text
-backend/
-│── config/
-│   ├── settings.py
-│   ├── urls.py
-│   └── wsgi.py
-│
-│── expenses/
-│   ├── models.py        # Expense & ExpenseItem models
-│   ├── serializers.py   # DRF serializers
-│   ├── views.py         # API views / viewsets
-│   ├── urls.py          # App-level routes
-│   └── admin.py
-│
-│── manage.py
-```
-
----
-
-## 🧩 Core Features
-
-### 1️⃣ Expense & Item Management
-
-* Create, update, retrieve, and delete expenses
-* Support for multiple items per expense
-* Server-side total calculations
-
-### 2️⃣ VAT Handling
-
-* VAT enable/disable per expense
-* Configurable VAT rate
-* Automatic VAT amount calculation
-
-### 3️⃣ Data Validation & Integrity
-
-* Serializer-level validation
-* Accurate decimal handling for financial values
-* Prevents inconsistent or invalid data
-
-### 4️⃣ Pagination & Filtering
-
-* DRF pagination support
-* Efficient querying for large datasets
-
----
-
-## 🔐 Authentication & Security (Optional)
-
-* Token / JWT authentication
-* Permission-based access control
-* Secure API endpoints for authorized users only
-
----
-
-## ⚙️ Environment Configuration
-
-Create a `.env` file:
-
-```env
-DEBUG=True
-SECRET_KEY=your-secret-key
-DATABASE_URL=postgres://user:password@localhost:5432/daycare_db
-```
-
----
-
-## ▶️ Running the Backend Project
+### 1️⃣ Clone the repository
 
 ```bash
-# Create virtual environment
-python -m venv venv
+git clone https://github.com/your-username/recipe-app-api.git
+cd recipe-app-api
+```
 
-# Activate virtual environment
-source venv/bin/activate  # Windows: venv\\Scripts\\activate
+### 2️⃣ Build and start containers
 
-# Install dependencies
-pip install -r requirements.txt
+```bash
+docker-compose build
+docker-compose up
+```
 
-# Apply migrations
-python manage.py migrate
+### 3️⃣ Run database migrations
 
-# Run development server
-python manage.py runserver
+```bash
+docker-compose run --rm app python manage.py migrate
+```
+
+### 4️⃣ Create a superuser
+
+```bash
+docker-compose run --rm app python manage.py createsuperuser
+```
+
+The API will be available at:
+
+```
+http://localhost:8000
 ```
 
 ---
 
-## 🔄 Integration Workflow
+## 📘 API Documentation (Swagger UI)
 
-1. Backend exposes REST APIs via DRF
-2. React + TypeScript frontend consumes APIs using RTK Query
-3. TypeScript interfaces mirror backend serializers
-4. Backend ensures validation and persistence
+Interactive API documentation is available via **Swagger UI**:
 
----
+```
+http://localhost:8000/api/docs/
+```
 
-## 🎯 Design Principles
+Features:
 
-* **API-First Development**
-* **Scalability** for growing DayCare data
-* **Security & Accuracy** for financial records
-* **Separation of Concerns** between frontend and backend
+* Endpoint exploration
+* Request/response schemas
+* Authentication testing directly from the browser
 
 ---
 
-## 🚀 Future Enhancements
+## 🧪 Testing Strategy
 
-* Advanced reporting & analytics endpoints
-* Role-based access control (Admin, Accountant)
-* Audit logs for expense changes
-* Multi-DayCare / branch support
+This project includes **multiple levels of testing**:
+
+* **Unit Tests:**
+  Test individual models, serializers, and utility functions
+
+* **Integration Tests:**
+  Test API endpoints, database interactions, and authentication flows
+
+### Run tests
+
+```bash
+docker-compose run --rm app python manage.py test
+```
+
+---
+
+## 🧹 Linting with Flake8
+
+Code quality is enforced using **Flake8** to ensure:
+
+* PEP8 compliance
+* Clean, readable, maintainable code
+
+### Run linting
+
+```bash
+docker-compose run --rm app flake8
+```
+
+---
+
+## 🔁 CI/CD Pipeline (GitHub Actions)
+
+The GitHub Actions workflow automatically runs on:
+
+* Every **push**
+* Every **pull request**
+
+### CI Pipeline includes:
+
+* Flake8 linting
+* Unit & integration tests
+* Docker build validation
+
+This ensures **high-quality, production-safe code** before merging.
+
+---
+
+## 🔐 Environment Variables
+
+Create a `.env` file in the project root:
+
+```env
+DEBUG=1
+SECRET_KEY=your-secret-key
+
+DB_NAME=recipe
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_HOST=db
+DB_PORT=5432
+```
+
+---
+
+## 📈 Future Enhancements
+
+* Role-based access control (RBAC)
+* API rate limiting
+* Redis caching
+* Production deployment with Nginx & Gunicorn
+* Monitoring and logging integration
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome!
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Open a Pull Request
 
 ---
 
 ## 📄 License
 
-This backend is developed for **DayCare Expense Management** and intended for controlled or licensed use.
+This project is licensed under the **MIT License**.
 
 ---
 
-### ✅ Summary
+## 👨‍💻 Author
 
-The **Django REST Framework backend** provides a **secure, scalable, and reliable foundation** for the DayCare Expense Management System, tightly integrated with a **React + TypeScript frontend** to deliver a complete end-to-end solution.
+**Ab**
+Backend Developer | Django REST Framework
+GitHub: (https://github.com/abeni-hub)
 
 ---
 
-📌 *Built to ensure accuracy, reliability, and seamless frontend integration for DayCare expense tracking.*
+⭐ Star this repository if you find it helpful!

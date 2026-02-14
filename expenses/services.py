@@ -1,4 +1,5 @@
 from decimal import Decimal
+from django.db.models import F
 from .models import Account
 
 
@@ -12,11 +13,11 @@ def get_account(account_type):
 
 def apply_expense(amount, payment_source):
     account = get_account(payment_source)
-    account.balance -= amount
-    account.save()
+    account.balance = F('balance') - Decimal(amount)
+    account.save(update_fields=['balance'])
 
 
 def rollback_expense(amount, payment_source):
     account = get_account(payment_source)
-    account.balance += amount
-    account.save()
+    account.balance = F('balance') + Decimal(amount)
+    account.save(update_fields=['balance'])

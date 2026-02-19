@@ -18,9 +18,9 @@ from .serializers import AccountSerializer
 class AccountViewSet(ReadOnlyModelViewSet):
     queryset = Account.objects.all()
     serializer_class = AccountSerializer
-    filter_backends = [DjangoFilterBackend, SearchFilter]
-    filterset_fields = ['account_type']
-    search_fields = ['account_type']
+    # filter_backends = [DjangoFilterBackend, SearchFilter]
+    # filterset_fields = ['account_type']
+    # search_fields = ['account_type']
 
 
     def list(self, request, *args, **kwargs):

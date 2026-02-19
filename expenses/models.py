@@ -30,7 +30,6 @@ class Account(models.Model):
     def __str__(self):
         return f"{self.account_type.upper()} - {self.balance}"
 
-
 # -----------------------
 # EXPENSE
 # -----------------------

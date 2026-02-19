@@ -6,9 +6,14 @@ from .models import Account, Expense, ExpenseItem
 
 
 class AccountSerializer(serializers.ModelSerializer):
+    name = serializers.SerializerMethodField()
+
     class Meta:
         model = Account
-        fields = '__all__'
+        fields = ['id', 'account_type', 'name', 'balance']
+
+    def get_name(self, obj):
+        return obj.get_account_type_display()
 
 
 class ExpenseItemSerializer(serializers.ModelSerializer):

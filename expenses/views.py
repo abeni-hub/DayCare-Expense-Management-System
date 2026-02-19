@@ -8,12 +8,41 @@ from .serializers import AccountSerializer, ExpenseSerializer
 from .services import apply_expense, rollback_expense
 
 
-class AccountViewSet(viewsets.ModelViewSet):
+from rest_framework.viewsets import ReadOnlyModelViewSet
+from rest_framework.response import Response
+from decimal import Decimal
+from .models import Account
+from .serializers import AccountSerializer
+
+
+class AccountViewSet(ReadOnlyModelViewSet):
     queryset = Account.objects.all()
     serializer_class = AccountSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['account_type']
     search_fields = ['account_type']
+
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+
+        accounts_data = serializer.data
+
+        # Compute combined total
+        total_balance = sum(
+            Decimal(account.balance) for account in queryset
+        )
+
+        combined_account = {
+            "id": "combined",
+            "account_type": "combined",
+            "name": "Combined Total",
+            "balance": total_balance
+        }
+
+        # Return combined first
+        return Response([combined_account] + accounts_data)
 
 
 class ExpenseViewSet(viewsets.ModelViewSet):

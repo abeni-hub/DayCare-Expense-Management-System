@@ -17,6 +17,7 @@ class AccountSerializer(serializers.ModelSerializer):
 
 
 class ExpenseItemSerializer(serializers.ModelSerializer):
+    vat_rate = serializers.DecimalField(max_digits=5, decimal_places=2, default=0)
     class Meta:
         model = ExpenseItem
         fields = (
@@ -25,6 +26,7 @@ class ExpenseItemSerializer(serializers.ModelSerializer):
             'quantity',
             'unit',
             'unit_price',
+            'vat_rate',
             'total',
         )
         read_only_fields = ('total',)
@@ -58,23 +60,21 @@ class ExpenseSerializer(serializers.ModelSerializer):
         items_data = validated_data.pop('items')
         expense = Expense.objects.create(**validated_data)
 
-        subtotal = Decimal('0')
+        total_val = Decimal('0')
+        total_vat = Decimal('0')
 
         for item_data in items_data:
-            item = ExpenseItem.objects.create(
-                expense=expense,
-                **item_data
-            )
-            subtotal += item.total
+            vat_rate = item_data.get('vat_rate', 0)
+            item = ExpenseItem.objects.create(expense=expense, **item_data)
 
-        vat_amount = Decimal('0')
-        if expense.vat_enabled:
-            vat_amount = subtotal * expense.vat_rate / Decimal('100')
+            # Calculate VAT for this specific item
+            item_vat = item.total * (vat_rate / Decimal('100'))
+            total_vat += item_vat
+            total_val += item.total
 
-        expense.vat_amount = vat_amount
-        expense.total_expense = subtotal + vat_amount
+        expense.vat_amount = total_vat
+        expense.total_expense = total_val + total_vat
         expense.save()
-
         return expense
 
     @transaction.atomic

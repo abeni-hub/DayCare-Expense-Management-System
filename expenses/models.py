@@ -44,6 +44,8 @@ class Expense(models.Model):
     description = models.TextField()
     category = models.CharField(max_length=100, db_index=True)
     supplier = models.CharField(max_length=255, blank=True, null=True)
+    invoice = models.FileField(upload_to='invoices/%Y/%m/', blank=True, null=True)
+    remarks = models.TextField(blank=True, null=True)
 
     payment_source = models.CharField(
         max_length=10,

@@ -55,32 +55,7 @@ class ExpenseViewSet(viewsets.ModelViewSet):
     search_fields = ["description", "supplier", "category", "remarks"]
     ordering_fields = ["date", "total_expense"]
 
-    # 🔥 FIX: Properly convert items JSON from FormData
-    def create(self, request, *args, **kwargs):
-        data = request.data.copy()
 
-        if 'items' in data and isinstance(data['items'], str):
-            data['items'] = json.loads(data['items'])
-
-        serializer = self.get_serializer(data=data)
-        serializer.is_valid(raise_exception=True)
-
-        self.perform_create(serializer)
-        return Response(serializer.data)
-
-    def update(self, request, *args, **kwargs):
-        partial = kwargs.pop('partial', False)
-        instance = self.get_object()
-        data = request.data.copy()
-
-        if 'items' in data and isinstance(data['items'], str):
-            data['items'] = json.loads(data['items'])
-
-        serializer = self.get_serializer(instance, data=data, partial=partial)
-        serializer.is_valid(raise_exception=True)
-
-        self.perform_update(serializer)
-        return Response(serializer.data)
 
     @transaction.atomic
     def perform_create(self, serializer):

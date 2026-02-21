@@ -28,7 +28,6 @@ class AccountViewSet(ReadOnlyModelViewSet):
 
         accounts_data = serializer.data
 
-        # Compute combined total safely
         total_balance = (
             queryset.aggregate(total=Sum("balance"))["total"]
             or Decimal("0")
@@ -56,16 +55,32 @@ class ExpenseViewSet(viewsets.ModelViewSet):
     search_fields = ["description", "supplier", "category", "remarks"]
     ordering_fields = ["date", "total_expense"]
 
-    def get_serializer(self, *args, **kwargs):
-        if self.request.method in ['POST', 'PUT', 'PATCH']:
-            data = kwargs.get('data')
+    # 🔥 FIX: Properly convert items JSON from FormData
+    def create(self, request, *args, **kwargs):
+        data = request.data.copy()
 
-            if data and 'items' in data and isinstance(data['items'], str):
-                mutable_data = data.copy()
-                mutable_data['items'] = json.loads(data['items'])
-                kwargs['data'] = mutable_data
+        if 'items' in data and isinstance(data['items'], str):
+            data['items'] = json.loads(data['items'])
 
-        return super().get_serializer(*args, **kwargs)
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+
+        self.perform_create(serializer)
+        return Response(serializer.data)
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        data = request.data.copy()
+
+        if 'items' in data and isinstance(data['items'], str):
+            data['items'] = json.loads(data['items'])
+
+        serializer = self.get_serializer(instance, data=data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+
+        self.perform_update(serializer)
+        return Response(serializer.data)
 
     @transaction.atomic
     def perform_create(self, serializer):
@@ -89,7 +104,6 @@ class ExpenseViewSet(viewsets.ModelViewSet):
         )
 
         expense = serializer.save()
-
         account = get_account(expense.payment_source)
 
         if account.balance < expense.total_expense:

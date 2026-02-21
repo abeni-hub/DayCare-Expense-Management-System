@@ -1,10 +1,12 @@
 from rest_framework import serializers
 from decimal import Decimal
 from django.db import transaction
-
 from .models import Account, Expense, ExpenseItem
 
 
+# -----------------------------
+# ACCOUNT SERIALIZER
+# -----------------------------
 class AccountSerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()
 
@@ -16,8 +18,12 @@ class AccountSerializer(serializers.ModelSerializer):
         return obj.get_account_type_display()
 
 
+# -----------------------------
+# EXPENSE ITEM SERIALIZER
+# -----------------------------
 class ExpenseItemSerializer(serializers.ModelSerializer):
     vat_rate = serializers.DecimalField(max_digits=5, decimal_places=2, default=0)
+
     class Meta:
         model = ExpenseItem
         fields = (
@@ -32,6 +38,9 @@ class ExpenseItemSerializer(serializers.ModelSerializer):
         read_only_fields = ('total',)
 
 
+# -----------------------------
+# EXPENSE SERIALIZER
+# -----------------------------
 class ExpenseSerializer(serializers.ModelSerializer):
     items = ExpenseItemSerializer(many=True)
 
@@ -42,7 +51,7 @@ class ExpenseSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data):
-        items_data = validated_data.pop('items')
+        items_data = validated_data.pop('items', [])
         expense = Expense.objects.create(**validated_data)
 
         grand_total = Decimal('0')
@@ -52,10 +61,11 @@ class ExpenseSerializer(serializers.ModelSerializer):
                 expense=expense,
                 **item_data
             )
-            grand_total += item.total
+            grand_total += item.total  # model should calculate total
 
         expense.total_expense = grand_total
         expense.save()
+
         return expense
 
     @transaction.atomic

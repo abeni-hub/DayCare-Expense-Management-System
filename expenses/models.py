@@ -2,9 +2,6 @@ from django.db import models
 from decimal import Decimal
 
 
-# -----------------------
-# ACCOUNTS
-# -----------------------
 class Account(models.Model):
     ACCOUNT_TYPES = (
         ('cash', 'Cash'),
@@ -24,15 +21,10 @@ class Account(models.Model):
         default=0
     )
 
-    class Meta:
-        ordering = ['account_type']
-
     def __str__(self):
         return f"{self.account_type.upper()} - {self.balance}"
 
-# -----------------------
-# EXPENSE
-# -----------------------
+
 class Expense(models.Model):
 
     PAYMENT_SOURCE_CHOICES = (
@@ -53,39 +45,18 @@ class Expense(models.Model):
         db_index=True
     )
 
-    vat_enabled = models.BooleanField(default=False)
-
-    vat_rate = models.DecimalField(
-        max_digits=5,
-        decimal_places=2,
-        default=0
-    )
-
-    vat_amount = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        default=0
-    )
-
     total_expense = models.DecimalField(
         max_digits=12,
         decimal_places=2,
         default=0
     )
 
-    remarks = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ['-date', '-created_at']
 
     def __str__(self):
         return f"{self.category} - {self.total_expense}"
 
 
-# -----------------------
-# EXPENSE ITEMS
-# -----------------------
 class ExpenseItem(models.Model):
     expense = models.ForeignKey(
         Expense,
@@ -97,6 +68,7 @@ class ExpenseItem(models.Model):
     quantity = models.DecimalField(max_digits=10, decimal_places=2)
     unit = models.CharField(max_length=50)
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    vat_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
 
     total = models.DecimalField(
         max_digits=12,
@@ -105,5 +77,7 @@ class ExpenseItem(models.Model):
     )
 
     def save(self, *args, **kwargs):
-        self.total = self.quantity * self.unit_price
+        subtotal = self.quantity * self.unit_price
+        vat = subtotal * (self.vat_rate / Decimal('100'))
+        self.total = subtotal + vat
         super().save(*args, **kwargs)

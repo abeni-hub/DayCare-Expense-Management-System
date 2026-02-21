@@ -34,46 +34,27 @@ class ExpenseItemSerializer(serializers.ModelSerializer):
 
 class ExpenseSerializer(serializers.ModelSerializer):
     items = ExpenseItemSerializer(many=True)
-    payment_source_display = serializers.CharField(
-        source='get_payment_source_display',
-        read_only=True
-    )
 
     class Meta:
         model = Expense
         fields = '__all__'
-        read_only_fields = (
-            'total_expense',
-            'vat_amount',
-            'created_at',
-        )
-
-    def validate(self, data):
-        if data.get("vat_enabled") and data.get("vat_rate", 0) <= 0:
-            raise serializers.ValidationError(
-                "VAT rate must be greater than 0 if VAT is enabled."
-            )
-        return data
+        read_only_fields = ('total_expense', 'created_at')
 
     @transaction.atomic
     def create(self, validated_data):
         items_data = validated_data.pop('items')
         expense = Expense.objects.create(**validated_data)
 
-        total_val = Decimal('0')
-        total_vat = Decimal('0')
+        grand_total = Decimal('0')
 
         for item_data in items_data:
-            vat_rate = item_data.get('vat_rate', 0)
-            item = ExpenseItem.objects.create(expense=expense, **item_data)
+            item = ExpenseItem.objects.create(
+                expense=expense,
+                **item_data
+            )
+            grand_total += item.total
 
-            # Calculate VAT for this specific item
-            item_vat = item.total * (vat_rate / Decimal('100'))
-            total_vat += item_vat
-            total_val += item.total
-
-        expense.vat_amount = total_vat
-        expense.total_expense = total_val + total_vat
+        expense.total_expense = grand_total
         expense.save()
         return expense
 
@@ -86,26 +67,19 @@ class ExpenseSerializer(serializers.ModelSerializer):
 
         instance.save()
 
-        subtotal = Decimal('0')
-
         if items_data is not None:
             instance.items.all().delete()
+
+            grand_total = Decimal('0')
+
             for item_data in items_data:
                 item = ExpenseItem.objects.create(
                     expense=instance,
                     **item_data
                 )
-                subtotal += item.total
-        else:
-            for item in instance.items.all():
-                subtotal += item.total
+                grand_total += item.total
 
-        vat_amount = Decimal('0')
-        if instance.vat_enabled:
-            vat_amount = subtotal * instance.vat_rate / Decimal('100')
-
-        instance.vat_amount = vat_amount
-        instance.total_expense = subtotal + vat_amount
-        instance.save()
+            instance.total_expense = grand_total
+            instance.save()
 
         return instance

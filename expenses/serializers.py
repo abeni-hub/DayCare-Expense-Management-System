@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from decimal import Decimal
-from django.db import transaction
 import json
+from django.db import transaction
+
 from .models import Account, Expense, ExpenseItem
 
 
@@ -34,64 +35,61 @@ class ExpenseItemSerializer(serializers.ModelSerializer):
 
 
 class ExpenseSerializer(serializers.ModelSerializer):
-    items = ExpenseItemSerializer(many=True)
+    # ── For READING (GET list / detail) ──
+    items = ExpenseItemSerializer(many=True, read_only=True)
+
+    # ── For WRITING (POST/PUT from React FormData) ──
+    items_input = serializers.JSONField(write_only=True)
 
     class Meta:
         model = Expense
         fields = '__all__'
         read_only_fields = ('total_expense', 'created_at')
 
-    # 🔥 THIS FIXES YOUR 400 ERROR
-    def to_internal_value(self, data):
-        if 'items' in data and isinstance(data['items'], str):
+    def validate_items_input(self, value):
+        if isinstance(value, str):
             try:
-                data = data.copy()
-                data['items'] = json.loads(data['items'])
-            except Exception:
-                raise serializers.ValidationError({"items": "Invalid JSON format."})
+                value = json.loads(value)
+            except (json.JSONDecodeError, TypeError):
+                raise serializers.ValidationError("Invalid JSON format for items.")
 
-        return super().to_internal_value(data)
+        if not isinstance(value, list) or len(value) == 0:
+            raise serializers.ValidationError("At least one item is required.")
+
+        item_serializer = ExpenseItemSerializer(data=value, many=True)
+        if not item_serializer.is_valid():
+            raise serializers.ValidationError(item_serializer.errors)
+
+        return item_serializer.validated_data
 
     @transaction.atomic
     def create(self, validated_data):
-        items_data = validated_data.pop('items', [])
+        items_data = validated_data.pop('items_input')
         expense = Expense.objects.create(**validated_data)
 
         grand_total = Decimal('0')
-
         for item_data in items_data:
-            item = ExpenseItem.objects.create(
-                expense=expense,
-                **item_data
-            )
+            item = ExpenseItem.objects.create(expense=expense, **item_data)
             grand_total += item.total
 
         expense.total_expense = grand_total
         expense.save()
-
         return expense
 
     @transaction.atomic
     def update(self, instance, validated_data):
-        items_data = validated_data.pop('items', None)
+        items_data = validated_data.pop('items_input', None)
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
-
         instance.save()
 
         if items_data is not None:
             instance.items.all().delete()
-
             grand_total = Decimal('0')
-
             for item_data in items_data:
-                item = ExpenseItem.objects.create(
-                    expense=instance,
-                    **item_data
-                )
+                item = ExpenseItem.objects.create(expense=instance, **item_data)
                 grand_total += item.total
-
             instance.total_expense = grand_total
             instance.save()
 

@@ -9,6 +9,7 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.viewsets import ReadOnlyModelViewSet
+from .filters import ExpenseFilter   # ← NEW IMPORT
 
 from .models import Account, Expense
 from .serializers import AccountSerializer, ExpenseSerializer
@@ -51,11 +52,9 @@ class ExpenseViewSet(viewsets.ModelViewSet):
     serializer_class = ExpenseSerializer
 
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ["category", "payment_source", "date"]
+    filterset_class = ExpenseFilter          # ← CHANGED TO CUSTOM FILTERSET
     search_fields = ["description", "supplier", "category", "remarks"]
     ordering_fields = ["date", "total_expense"]
-
-
 
     @transaction.atomic
     def perform_create(self, serializer):
@@ -63,35 +62,25 @@ class ExpenseViewSet(viewsets.ModelViewSet):
         account = get_account(expense.payment_source)
 
         if account.balance < expense.total_expense:
-            raise ValidationError(
-                {"detail": "Insufficient balance in selected account."}
-            )
+            raise ValidationError({"detail": "Insufficient balance in selected account."})
 
         apply_expense(expense.total_expense, expense.payment_source)
 
+    # ... perform_update and perform_destroy stay exactly the same
     @transaction.atomic
     def perform_update(self, serializer):
         old_expense = self.get_object()
-
-        rollback_expense(
-            old_expense.total_expense,
-            old_expense.payment_source,
-        )
+        rollback_expense(old_expense.total_expense, old_expense.payment_source)
 
         expense = serializer.save()
         account = get_account(expense.payment_source)
 
         if account.balance < expense.total_expense:
-            raise ValidationError(
-                {"detail": "Insufficient balance after update."}
-            )
+            raise ValidationError({"detail": "Insufficient balance after update."})
 
         apply_expense(expense.total_expense, expense.payment_source)
 
     @transaction.atomic
     def perform_destroy(self, instance):
-        rollback_expense(
-            instance.total_expense,
-            instance.payment_source,
-        )
+        rollback_expense(instance.total_expense, instance.payment_source)
         instance.delete()

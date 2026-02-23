@@ -1,38 +1,28 @@
 from django.db import models
-from incomes.constants import IncomeType
+from decimal import Decimal
 
 class Income(models.Model):
-    date = models.DateField(db_index=True)
+    CATEGORY_CHOICES = (
+        ('salary', 'Salary'),
+        ('sales', 'Sales'),
+        ('investment', 'Investment'),
+        ('other', 'Other'),
+    )
 
-    income_type = models.CharField(
-        max_length=30,
-        choices=IncomeType.choices,
+    date = models.DateField(db_index=True)
+    description = models.TextField()
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, db_index=True)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    payment_source = models.CharField(
+        max_length=10,
+        choices=[('cash', 'Cash'), ('bank', 'Bank'), ('combined', 'Both / Combined')],
         db_index=True
     )
-
-    parent = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True
-    )
-
-    description = models.TextField(blank=True)
-
-    amount = models.DecimalField(
-        max_digits=12,
-        decimal_places=2
-    )
-
-    payment_destination = models.ForeignKey(
-        'expenses.Account',
-        on_delete=models.PROTECT,
-        related_name='incomes'
-    )
-
+    remarks = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    class Meta:
-        ordering = ['-date', '-created_at']
-
     def __str__(self):
-        return f"{self.get_income_type_display()} - {self.amount}"
+        return f"{self.description} - {self.amount}"
+
+    class Meta:
+        ordering = ['-date']

@@ -56,25 +56,100 @@ class ExpenseViewSet(viewsets.ModelViewSet):
     search_fields = ["description", "supplier", "category", "remarks"]
     ordering_fields = ["date", "total_expense"]
 
+    # -------------------------
+    # CREATE
+    # -------------------------
     @transaction.atomic
     def perform_create(self, serializer):
         expense = serializer.save()
-        account = get_account(expense.payment_source)
-        if account.balance < expense.total_expense:
-            raise ValidationError({"detail": "Insufficient balance in selected account."})
-        apply_expense(expense.total_expense, expense.payment_source)
 
+        if expense.payment_source == "combined":
+            cash_amount = Decimal(self.request.data.get("cash_amount", 0))
+            bank_amount = Decimal(self.request.data.get("bank_amount", 0))
+
+            if cash_amount + bank_amount != expense.total_expense:
+                raise ValidationError({"detail": "Cash + Bank must equal total expense."})
+
+            cash_account = get_account("cash")
+            bank_account = get_account("bank")
+
+            if cash_account.balance < cash_amount:
+                raise ValidationError({"detail": "Insufficient cash balance."})
+
+            if bank_account.balance < bank_amount:
+                raise ValidationError({"detail": "Insufficient bank balance."})
+
+            apply_expense(cash_amount, "cash")
+            apply_expense(bank_amount, "bank")
+
+        else:
+            account = get_account(expense.payment_source)
+
+            if account.balance < expense.total_expense:
+                raise ValidationError({"detail": "Insufficient balance in selected account."})
+
+            apply_expense(expense.total_expense, expense.payment_source)
+
+    # -------------------------
+    # UPDATE
+    # -------------------------
     @transaction.atomic
     def perform_update(self, serializer):
         old_expense = self.get_object()
-        rollback_expense(old_expense.total_expense, old_expense.payment_source)
-        expense = serializer.save()
-        account = get_account(expense.payment_source)
-        if account.balance < expense.total_expense:
-            raise ValidationError({"detail": "Insufficient balance after update."})
-        apply_expense(expense.total_expense, expense.payment_source)
 
+        # Rollback OLD transaction first
+        if old_expense.payment_source == "combined":
+            old_cash = Decimal(self.request.data.get("cash_amount", 0))
+            old_bank = Decimal(self.request.data.get("bank_amount", 0))
+
+            rollback_expense(old_cash, "cash")
+            rollback_expense(old_bank, "bank")
+        else:
+            rollback_expense(old_expense.total_expense, old_expense.payment_source)
+
+        expense = serializer.save()
+
+        if expense.payment_source == "combined":
+            cash_amount = Decimal(self.request.data.get("cash_amount", 0))
+            bank_amount = Decimal(self.request.data.get("bank_amount", 0))
+
+            if cash_amount + bank_amount != expense.total_expense:
+                raise ValidationError({"detail": "Cash + Bank must equal total expense."})
+
+            cash_account = get_account("cash")
+            bank_account = get_account("bank")
+
+            if cash_account.balance < cash_amount:
+                raise ValidationError({"detail": "Insufficient cash balance after update."})
+
+            if bank_account.balance < bank_amount:
+                raise ValidationError({"detail": "Insufficient bank balance after update."})
+
+            apply_expense(cash_amount, "cash")
+            apply_expense(bank_amount, "bank")
+
+        else:
+            account = get_account(expense.payment_source)
+
+            if account.balance < expense.total_expense:
+                raise ValidationError({"detail": "Insufficient balance after update."})
+
+            apply_expense(expense.total_expense, expense.payment_source)
+
+    # -------------------------
+    # DELETE
+    # -------------------------
     @transaction.atomic
     def perform_destroy(self, instance):
-        rollback_expense(instance.total_expense, instance.payment_source)
+
+        if instance.payment_source == "combined":
+            # We assume frontend always sends correct split again if needed
+            cash_amount = Decimal(self.request.data.get("cash_amount", 0))
+            bank_amount = Decimal(self.request.data.get("bank_amount", 0))
+
+            rollback_expense(cash_amount, "cash")
+            rollback_expense(bank_amount, "bank")
+        else:
+            rollback_expense(instance.total_expense, instance.payment_source)
+
         instance.delete()

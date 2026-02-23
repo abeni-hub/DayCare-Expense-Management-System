@@ -6,7 +6,6 @@ class Account(models.Model):
     ACCOUNT_TYPES = (
         ('cash', 'Cash'),
         ('bank', 'Bank'),
-        ('combined', 'Both / Combined'),
     )
 
     account_type = models.CharField(
@@ -31,6 +30,7 @@ class Expense(models.Model):
     PAYMENT_SOURCE_CHOICES = (
         ('cash', 'Cash'),
         ('bank', 'Bank'),
+        ('combined', 'Both / Combined'),
     )
 
     date = models.DateField(db_index=True)

@@ -56,6 +56,8 @@ class Expense(models.Model):
 
     def __str__(self):
         return f"{self.category} - {self.total_expense}"
+    class Meta:
+        ordering = ['-date', '-created_at']
 
 
 class ExpenseItem(models.Model):

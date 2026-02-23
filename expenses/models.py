@@ -6,6 +6,7 @@ class Account(models.Model):
     ACCOUNT_TYPES = (
         ('cash', 'Cash'),
         ('bank', 'Bank'),
+        ('combined', 'Both / Combined'),
     )
 
     account_type = models.CharField(

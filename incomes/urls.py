@@ -1,8 +1,10 @@
-# incomes/urls.py
+from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from incomes.views import IncomeViewSet
+from .views import IncomeViewSet
 
 router = DefaultRouter()
-router.register(r'incomes', IncomeViewSet)
+router.register(r'income', IncomeViewSet)
 
-urlpatterns = router.urls
+urlpatterns = [
+    path('', include(router.urls)),
+]

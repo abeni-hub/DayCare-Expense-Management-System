@@ -5,51 +5,21 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import Income
 from .serializers import IncomeSerializer
-
 from expenses.services import apply_income, rollback_income
 
-
 class IncomeViewSet(viewsets.ModelViewSet):
-
     queryset = Income.objects.all().order_by('-date')
     serializer_class = IncomeSerializer
-
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
 
-    # Filtering
-    filterset_fields = [
-        'transaction_type',
-        'category',
-        'payment_source',
-        'status',
-        'date'
-    ]
+    filterset_fields = ['transaction_type', 'category', 'payment_source', 'status', 'date']
+    search_fields = ['description', 'payer_name', 'reference_number', 'remarks']
+    ordering_fields = ['date', 'amount', 'amount_paid', 'created_at']
 
-    # Search
-    search_fields = [
-        'description',
-        'payer_name',
-        'reference_number',
-        'remarks'
-    ]
-
-    # Ordering
-    ordering_fields = [
-        'date',
-        'amount',
-        'amount_paid',
-        'created_at'
-    ]
-
-    # ----------------------------
-    # CREATE INCOME
-    # ----------------------------
     @transaction.atomic
     def perform_create(self, serializer):
-
         income = serializer.save()
 
-        # Only apply paid money to balance
         if income.amount_paid > 0:
             apply_income(
                 income.amount_paid,
@@ -58,15 +28,12 @@ class IncomeViewSet(viewsets.ModelViewSet):
                 income.amount_bank or 0
             )
 
-    # ----------------------------
-    # UPDATE INCOME
-    # ----------------------------
     @transaction.atomic
     def perform_update(self, serializer):
-
+        # Get the database state BEFORE the update
         old_income = self.get_object()
 
-        # rollback previous paid money
+        # Rollback previous applied money
         if old_income.amount_paid > 0:
             rollback_income(
                 old_income.amount_paid,
@@ -75,9 +42,10 @@ class IncomeViewSet(viewsets.ModelViewSet):
                 old_income.amount_bank or 0
             )
 
+        # Save new data
         income = serializer.save()
 
-        # apply new payment
+        # Apply new payment
         if income.amount_paid > 0:
             apply_income(
                 income.amount_paid,
@@ -86,13 +54,8 @@ class IncomeViewSet(viewsets.ModelViewSet):
                 income.amount_bank or 0
             )
 
-    # ----------------------------
-    # DELETE INCOME
-    # ----------------------------
     @transaction.atomic
     def perform_destroy(self, instance):
-
-        # rollback paid money
         if instance.amount_paid > 0:
             rollback_income(
                 instance.amount_paid,
@@ -100,5 +63,4 @@ class IncomeViewSet(viewsets.ModelViewSet):
                 instance.amount_cash or 0,
                 instance.amount_bank or 0
             )
-
         instance.delete()

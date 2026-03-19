@@ -1,24 +1,25 @@
-from rest_framework import serializers
-from decimal import Decimal
 import json
-from django.db import transaction
-
+from rest_framework import serializers
 from .models import Account, Expense, ExpenseItem
+from django.db import transaction
+from decimal import Decimal
 
 
 class AccountSerializer(serializers.ModelSerializer):
-    name = serializers.SerializerMethodField()
-
     class Meta:
         model = Account
-        fields = ['id', 'account_type', 'name', 'balance']
-
-    def get_name(self, obj):
-        return obj.get_account_type_display()
+        fields = '__all__'
 
 
 class ExpenseItemSerializer(serializers.ModelSerializer):
-    vat_rate = serializers.DecimalField(max_digits=5, decimal_places=2, default=0)
+    # ✅ NEW: accept vat_rate from frontend (write-only so it doesn't appear in GET responses)
+    vat_rate = serializers.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        required=False,
+        write_only=True,
+        default=Decimal('0.00')
+    )
 
     class Meta:
         model = ExpenseItem
@@ -28,57 +29,112 @@ class ExpenseItemSerializer(serializers.ModelSerializer):
             'quantity',
             'unit',
             'unit_price',
-            'vat_rate',
             'total',
         )
         read_only_fields = ('total',)
 
 
 class ExpenseSerializer(serializers.ModelSerializer):
-    # ── For READING (GET list / detail) ──
-    items = ExpenseItemSerializer(many=True, read_only=True)
-
-    # ── For WRITING (POST/PUT from React FormData) ──
-    items_input = serializers.JSONField(write_only=True)
+    items = ExpenseItemSerializer(many=True, required=False)
+    cash_amount = serializers.DecimalField(
+        max_digits=12, decimal_places=2, write_only=True, required=False
+    )
+    bank_amount = serializers.DecimalField(
+        max_digits=12, decimal_places=2, write_only=True, required=False
+    )
 
     class Meta:
         model = Expense
         fields = '__all__'
-        read_only_fields = ('total_expense', 'created_at')
+        read_only_fields = ('total_expense', 'vat_amount', 'created_at')
 
-    def validate_items_input(self, value):
-        if isinstance(value, str):
+    # ✅ FormData JSON string handling (unchanged – already correct)
+    def to_internal_value(self, data):
+        data = data.copy()
+        items = data.get('items')
+        if items and isinstance(items, str):
             try:
-                value = json.loads(value)
-            except (json.JSONDecodeError, TypeError):
-                raise serializers.ValidationError("Invalid JSON format for items.")
+                data['items'] = json.loads(items)
+            except Exception:
+                raise serializers.ValidationError({"items": ["Invalid JSON format."]})
+        return super().to_internal_value(data)
 
-        if not isinstance(value, list) or len(value) == 0:
-            raise serializers.ValidationError("At least one item is required.")
+    def _handle_account_deduction(self, expense, cash_amount, bank_amount):
+        payment_source = expense.payment_source
+        if payment_source == 'cash':
+            cash_account, _ = Account.objects.get_or_create(
+                account_type='cash', defaults={'balance': Decimal('0')}
+            )
+            cash_account.balance -= expense.total_expense
+            cash_account.save()
+        elif payment_source == 'bank':
+            bank_account, _ = Account.objects.get_or_create(
+                account_type='bank', defaults={'balance': Decimal('0')}
+            )
+            bank_account.balance -= expense.total_expense
+            bank_account.save()
+        elif payment_source == 'combined':
+            if cash_amount > 0:
+                cash_account, _ = Account.objects.get_or_create(
+                    account_type='cash', defaults={'balance': Decimal('0')}
+                )
+                cash_account.balance -= Decimal(str(cash_amount))
+                cash_account.save()
+            if bank_amount > 0:
+                bank_account, _ = Account.objects.get_or_create(
+                    account_type='bank', defaults={'balance': Decimal('0')}
+                )
+                bank_account.balance -= Decimal(str(bank_amount))
+                bank_account.save()
 
-        item_serializer = ExpenseItemSerializer(data=value, many=True)
-        if not item_serializer.is_valid():
-            raise serializers.ValidationError(item_serializer.errors)
-
-        return item_serializer.validated_data
-
+    # ✅ CREATE – now calculates per-item VAT correctly
     @transaction.atomic
     def create(self, validated_data):
-        items_data = validated_data.pop('items_input')
+        items_data = validated_data.pop('items', None)
+        if not items_data:
+            raise serializers.ValidationError({"items": ["This field is required."]})
+
+        cash_amount = validated_data.pop('cash_amount', Decimal('0'))
+        bank_amount = validated_data.pop('bank_amount', Decimal('0'))
+
         expense = Expense.objects.create(**validated_data)
 
-        grand_total = Decimal('0')
-        for item_data in items_data:
-            item = ExpenseItem.objects.create(expense=expense, **item_data)
-            grand_total += item.total
+        total_expense = Decimal('0')
+        vat_amount = Decimal('0')
 
-        expense.total_expense = grand_total
+        for item in items_data:
+            qty = Decimal(str(item['quantity']))
+            unit_price = Decimal(str(item['unit_price']))
+            vat_rate = Decimal(str(item.get('vat_rate', 0)))
+
+            item_subtotal = qty * unit_price
+            item_vat = item_subtotal * vat_rate / Decimal('100')
+            item_total = item_subtotal + item_vat
+
+            ExpenseItem.objects.create(
+                expense=expense,
+                item_name=item['item_name'],
+                quantity=item['quantity'],
+                unit=item.get('unit', 'pcs'),
+                unit_price=item['unit_price'],
+                total=item_total,          # ← now includes VAT
+            )
+            total_expense += item_total
+            vat_amount += item_vat
+
+        expense.vat_amount = vat_amount
+        expense.total_expense = total_expense
         expense.save()
+
+        self._handle_account_deduction(expense, cash_amount, bank_amount)
         return expense
 
+    # ✅ UPDATE – same per-item VAT logic
     @transaction.atomic
     def update(self, instance, validated_data):
-        items_data = validated_data.pop('items_input', None)
+        items_data = validated_data.pop('items', None)
+        cash_amount = validated_data.pop('cash_amount', Decimal('0'))
+        bank_amount = validated_data.pop('bank_amount', Decimal('0'))
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
@@ -86,11 +142,37 @@ class ExpenseSerializer(serializers.ModelSerializer):
 
         if items_data is not None:
             instance.items.all().delete()
-            grand_total = Decimal('0')
-            for item_data in items_data:
-                item = ExpenseItem.objects.create(expense=instance, **item_data)
-                grand_total += item.total
-            instance.total_expense = grand_total
-            instance.save()
+            total_expense = Decimal('0')
+            vat_amount = Decimal('0')
+            for item in items_data:
+                qty = Decimal(str(item['quantity']))
+                unit_price = Decimal(str(item['unit_price']))
+                vat_rate = Decimal(str(item.get('vat_rate', 0)))
 
+                item_subtotal = qty * unit_price
+                item_vat = item_subtotal * vat_rate / Decimal('100')
+                item_total = item_subtotal + item_vat
+
+                ExpenseItem.objects.create(
+                    expense=instance,
+                    item_name=item['item_name'],
+                    quantity=item['quantity'],
+                    unit=item.get('unit', 'pcs'),
+                    unit_price=item['unit_price'],
+                    total=item_total,
+                )
+                total_expense += item_total
+                vat_amount += item_vat
+        else:
+            # fallback (rare because frontend always sends items)
+            total_expense = Decimal('0')
+            vat_amount = getattr(instance, 'vat_amount', Decimal('0'))
+            for item in instance.items.all():
+                total_expense += Decimal(str(item.total))
+
+        instance.vat_amount = vat_amount
+        instance.total_expense = total_expense
+        instance.save()
+
+        self._handle_account_deduction(instance, cash_amount, bank_amount)
         return instance

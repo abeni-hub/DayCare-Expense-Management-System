@@ -164,7 +164,6 @@ class ExpenseSerializer(serializers.ModelSerializer):
                 total_expense += item_total
                 vat_amount += item_vat
         else:
-            # fallback (rare because frontend always sends items)
             total_expense = Decimal('0')
             vat_amount = getattr(instance, 'vat_amount', Decimal('0'))
             for item in instance.items.all():

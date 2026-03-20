@@ -129,7 +129,6 @@ class ExpenseSerializer(serializers.ModelSerializer):
         self._handle_account_deduction(expense, cash_amount, bank_amount)
         return expense
 
-    # ✅ UPDATE – same per-item VAT logic
     @transaction.atomic
     def update(self, instance, validated_data):
         items_data = validated_data.pop('items', None)

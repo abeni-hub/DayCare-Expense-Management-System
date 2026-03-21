@@ -86,8 +86,6 @@ class ExpenseSerializer(serializers.ModelSerializer):
                 )
                 bank_account.balance -= Decimal(str(bank_amount))
                 bank_account.save()
-
-    # ✅ CREATE – now calculates per-item VAT correctly
     @transaction.atomic
     def create(self, validated_data):
         items_data = validated_data.pop('items', None)
@@ -96,7 +94,6 @@ class ExpenseSerializer(serializers.ModelSerializer):
 
         cash_amount = validated_data.pop('cash_amount', Decimal('0'))
         bank_amount = validated_data.pop('bank_amount', Decimal('0'))
-
         expense = Expense.objects.create(**validated_data)
 
         total_expense = Decimal('0')
@@ -117,7 +114,7 @@ class ExpenseSerializer(serializers.ModelSerializer):
                 quantity=item['quantity'],
                 unit=item.get('unit', 'pcs'),
                 unit_price=item['unit_price'],
-                total=item_total,          # ← now includes VAT
+                total=item_total,
             )
             total_expense += item_total
             vat_amount += item_vat

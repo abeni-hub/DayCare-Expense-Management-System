@@ -10,5 +10,5 @@ class ExpenseFilter(FilterSet):
         fields = {
             'category': ['exact'],
             'payment_source': ['exact'],
-            'date': ['exact'],   # keep exact too
+            'date': ['exact'],
         }

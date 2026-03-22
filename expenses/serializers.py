@@ -12,7 +12,6 @@ class AccountSerializer(serializers.ModelSerializer):
 
 
 class ExpenseItemSerializer(serializers.ModelSerializer):
-    # ✅ NEW: accept vat_rate from frontend (write-only so it doesn't appear in GET responses)
     vat_rate = serializers.DecimalField(
         max_digits=5,
         decimal_places=2,
@@ -47,8 +46,6 @@ class ExpenseSerializer(serializers.ModelSerializer):
         model = Expense
         fields = '__all__'
         read_only_fields = ('total_expense', 'vat_amount', 'created_at')
-
-    # ✅ FormData JSON string handling (unchanged – already correct)
     def to_internal_value(self, data):
         data = data.copy()
         items = data.get('items')

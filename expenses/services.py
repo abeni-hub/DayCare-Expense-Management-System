@@ -39,8 +39,6 @@ def rollback_expense(amount, payment_source, amount_cash=0, amount_bank=0):
         account.balance = F('balance') + Decimal(amount)
         account.save(update_fields=['balance'])
 
-
-# ====================== INCOME ======================
 def apply_income(amount, payment_source, amount_cash=0, amount_bank=0):
     if payment_source == 'combined':
         cash = get_account('cash')
